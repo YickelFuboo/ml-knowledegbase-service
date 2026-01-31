@@ -14519,4 +14519,4 @@ reference = "aliyun"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "df4a69ff2c4a2916f65dd68eeb3c9db2e1d68febc6bb6af48c5e6bcf5e94e55f"
+content-hash = "70ee790ff0f09b03fade7c3e7f4c24b29df3a6f00078e891c8a539d343e2aba5"
