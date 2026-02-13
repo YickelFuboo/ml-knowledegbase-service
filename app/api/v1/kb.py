@@ -9,7 +9,6 @@ from app.services.kb_service import KBService
 from app.schemes.kb import (
     CreateKBRequest,
     UpdateKBRequest,
-    ListKBRequest,
     KBResponse,
     KBDetailResponse,
     ListKBResponse,
@@ -20,7 +19,7 @@ from app.schemes.kb import (
 )
 
  
-router = APIRouter(prefix="/api/knowledgebase", tags=["知识库管理"])
+router = APIRouter(prefix="/knowledgebase", tags=["知识库管理"])
 
 # API接口
 @router.post("/create", response_model=CreateKBResponse)
@@ -75,7 +74,7 @@ async def create_kb(
             detail={"message": f"创建知识库失败: {str(e)}"}
         )
 
-@router.post("/update")
+@router.put("/update")
 async def update_kb(
     request: UpdateKBRequest,
     user_id: str = Query(..., description="用户ID"),
@@ -166,31 +165,33 @@ async def get_kb_detail(
             detail={"message": f"获取知识库详情失败: {str(e)}"}
         )
 
-@router.post("/list", response_model=ListKBResponse)
+@router.get("/list-by-owner", response_model=ListKBResponse)
 async def list_kbs(
-    list_request: ListKBRequest,
     user_id: str = Query(..., description="用户ID"),
+    page_number: int = Query(1, ge=1, description="页码"),
+    items_per_page: int = Query(20, ge=1, le=100, description="每页数量"),
+    order_by: str = Query("created_at", description="排序字段"),
+    desc: bool = Query(True, description="是否降序"),
+    keywords: Optional[str] = Query(None, description="搜索关键词"),
     session: AsyncSession = Depends(get_db)
 ):
-    """获取知识库列表"""
+    """获取当前用户作为 Owner 的知识库列表"""
     try:
-        kb_list, total_count = await KBService.list_kbs(
+        kb_list, total_count = await KBService.list_kbs_by_owner(
             session=session,
             owner_id=user_id,
-            page_number=list_request.page_number,
-            items_per_page=list_request.items_per_page,
-            order_by=list_request.order_by,
-            desc_order=list_request.desc,
-            keywords=list_request.keywords
+            page_number=page_number,
+            items_per_page=items_per_page,
+            order_by=order_by,
+            desc_order=desc,
+            keywords=keywords
         )
-        
         return ListKBResponse(
             items=kb_list,
             total=total_count,
-            page_number=list_request.page_number,
-            items_per_page=list_request.items_per_page
+            page_number=page_number,
+            items_per_page=items_per_page
         )
-        
     except Exception as e:
         logging.error(f"获取知识库列表失败: {e}")
         raise HTTPException(
@@ -198,7 +199,41 @@ async def list_kbs(
             detail={"message": f"获取知识库列表失败: {str(e)}"}
         )
 
-@router.post("/delete")
+@router.get("/list-by-tenant", response_model=ListKBResponse)
+async def list_kbs_by_tenant(
+    tenant_id: str = Query(..., description="租户ID"),
+    page_number: int = Query(1, ge=1, description="页码"),
+    items_per_page: int = Query(20, ge=1, le=100, description="每页数量"),
+    order_by: str = Query("created_at", description="排序字段"),
+    desc: bool = Query(True, description="是否降序"),
+    keywords: Optional[str] = Query(None, description="搜索关键词"),
+    session: AsyncSession = Depends(get_db)
+):
+    """按租户ID获取知识库列表（该租户下的所有知识库）"""
+    try:
+        kb_list, total_count = await KBService.list_kbs_by_tenant(
+            session=session,
+            tenant_id=tenant_id,
+            page_number=page_number,
+            items_per_page=items_per_page,
+            order_by=order_by,
+            desc_order=desc,
+            keywords=keywords
+        )
+        return ListKBResponse(
+            items=kb_list,
+            total=total_count,
+            page_number=page_number,
+            items_per_page=items_per_page
+        )
+    except Exception as e:
+        logging.error(f"按租户获取知识库列表失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": f"按租户获取知识库列表失败: {str(e)}"}
+        )
+
+@router.delete("/delete")
 async def delete_kb(
     kb_id: str = Query(..., description="知识库ID"),
     user_id: str = Query(..., description="用户ID"),

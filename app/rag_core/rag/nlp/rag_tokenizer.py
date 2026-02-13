@@ -26,6 +26,7 @@ from hanziconv import HanziConv
 from nltk import word_tokenize
 from nltk.stem import PorterStemmer, WordNetLemmatizer
 
+
 class RagTokenizer:
     def key_(self, line):
         return str(line.lower().encode("utf-8"))[2:-1]
@@ -67,22 +68,17 @@ class RagTokenizer:
         self.SPLIT_CHAR = r"([ ,\.<>/?;:'\[\]\\`!@#$%^&*\(\)\{\}\|_+=《》，。？、；‘’：“”【】~！￥%……（）——-]+|[a-zA-Z0-9,\.-]+)"
 
         trie_file_name = self.DIR_ + ".txt.trie"
-        # check if trie file existence
         if os.path.exists(trie_file_name):
             try:
-                # load trie from file
                 self.trie_ = datrie.Trie.load(trie_file_name)
                 return
             except Exception:
-                # fail to load trie from file, build default trie
                 logging.exception(f"[HUQIE]:Fail to load trie file {trie_file_name}, build the default trie file")
                 self.trie_ = datrie.Trie(string.printable)
         else:
-            # file not exist, build default trie
             logging.info(f"[HUQIE]:Trie file {trie_file_name} not found, build the default trie file")
             self.trie_ = datrie.Trie(string.printable)
 
-        # load data from dict file and save to trie file
         self.loadDict_(self.DIR_ + ".txt")
 
     def loadUserDict(self, fnm):

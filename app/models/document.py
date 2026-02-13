@@ -33,7 +33,11 @@ class Document(Base):
     meta_fields = Column(JSON, default={}, comment="文档元数据字段(JSON)")
     thumbnail_id = Column(String(500), comment="缩略图ID")
     source_type = Column(String(20), default=FileSource.UPLOAD, comment="文件来源")
-    process_status = Column(SQLEnum(ProcessStatus), default=ProcessStatus.INIT, comment="文档处理状态")
+    process_status = Column(
+        SQLEnum(ProcessStatus, values_callable=lambda obj: [e.value for e in obj]),
+        default=ProcessStatus.INIT,
+        comment="文档处理状态"
+    )
     created_by = Column(String(36), nullable=False, comment="创建者ID")
     created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")

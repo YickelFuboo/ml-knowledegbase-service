@@ -8,7 +8,7 @@ from app.infrastructure.database import get_db
 from app.schemes.kb_qa import SingleQaRequest, QaResponse, StreamQaResponse, ChatRequest, KbQueryRequest
 from app.services.kb_qa_service import QAService
 
-router = APIRouter(prefix="/api/qa", tags=["问答服务"])
+router = APIRouter(prefix="/qa", tags=["问答服务"])
 
 @router.post("/single", response_model=QaResponse)
 async def single_qa(

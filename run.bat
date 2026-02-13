@@ -1,0 +1,6 @@
+@echo off
+cd /d "%~dp0"
+echo 检查并初始化 NLTK 数据...
+poetry run python init_nltk.py
+echo 启动应用...
+poetry run start

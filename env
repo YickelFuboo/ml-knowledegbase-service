@@ -7,7 +7,7 @@
 # 基础配置
 # =============================================================================
 SERVICE_HOST=0.0.0.0
-SERVICE_PORT=8002
+SERVICE_PORT=8003
 
 DEBUG=true
 APP_LOG_LEVEL=WARNING
@@ -40,7 +40,7 @@ AUTH_BLACKLIST_ENDPOINT=/blacklist
 # 数据库类型: postgresql 或 mysql
 DATABASE_TYPE=postgresql
 # 数据库名称
-DB_NAME=knowledge_service
+DB_NAME=ml_knowledgebase_service
 # 数据库连接池配置
 DB_POOL_SIZE=10
 DB_MAX_OVERFLOW=20

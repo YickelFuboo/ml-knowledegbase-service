@@ -173,7 +173,7 @@ class KBService:
             raise
     
     @staticmethod
-    async def list_kbs(
+    async def list_kbs_by_owner(
         session: AsyncSession,
         owner_id: str,
         page_number: int = 1,
@@ -254,6 +254,73 @@ class KBService:
             
         except Exception as e:
             logging.error(f"获取知识库列表失败: {e}")
+            raise
+
+    @staticmethod
+    async def list_kbs_by_tenant(
+        session: AsyncSession,
+        tenant_id: str,
+        page_number: int = 1,
+        items_per_page: int = 20,
+        order_by: str = "created_at",
+        desc_order: bool = True,
+        keywords: str = None
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """按租户ID获取知识库列表（该租户下的所有知识库）"""
+        try:
+            conditions = [
+                KB.status == "1",
+                KB.tenant_id == tenant_id
+            ]
+            if keywords:
+                conditions.append(
+                    func.lower(KB.name).contains(keywords.lower())
+                )
+            stmt = select(KB).where(and_(*conditions))
+            if hasattr(KB, order_by):
+                order_field = getattr(KB, order_by)
+                if desc_order:
+                    stmt = stmt.order_by(desc(order_field))
+                else:
+                    stmt = stmt.order_by(asc(order_field))
+            else:
+                if desc_order:
+                    stmt = stmt.order_by(desc(KB.created_at))
+                else:
+                    stmt = stmt.order_by(asc(KB.created_at))
+            count_stmt = select(func.count()).select_from(stmt.subquery())
+            count_result = await session.execute(count_stmt)
+            total_count = count_result.scalar()
+            if page_number and items_per_page:
+                offset = (page_number - 1) * items_per_page
+                stmt = stmt.offset(offset).limit(items_per_page)
+            result = await session.execute(stmt)
+            knowledgebases = result.scalars().all()
+            kb_list = []
+            for kb in knowledgebases:
+                kb_dict = {
+                    "id": kb.id,
+                    "name": kb.name,
+                    "description": kb.description,
+                    "language": kb.language,
+                    "owner_id": kb.owner_id,
+                    "tenant_id": kb.tenant_id,
+                    "doc_num": kb.doc_num,
+                    "embd_provider_name": kb.embd_provider_name,
+                    "embd_model_name": kb.embd_model_name,
+                    "rerank_provider_name": kb.rerank_provider_name,
+                    "rerank_model_name": kb.rerank_model_name,
+                    "page_rank": kb.page_rank,
+                    "parser_id": kb.parser_id,
+                    "parser_config": kb.parser_config,
+                    "created_at": kb.created_at,
+                    "updated_at": kb.updated_at
+                }
+                kb_list.append(kb_dict)
+            return kb_list, total_count
+        except Exception as e:
+            logging.error(f"按租户获取知识库列表失败: {e}")
+            raise
             raise
     
     @staticmethod

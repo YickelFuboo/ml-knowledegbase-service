@@ -7,10 +7,7 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.openapi.utils import get_openapi
 from app.logger import set_log_level, setup_logging
-from app.api.v1 import kb, document, models, kb_qa
 from app.config.settings import settings, APP_NAME, APP_VERSION, APP_DESCRIPTION
 from app.middleware.logging import logging_middleware
 from app.infrastructure.celery.app import celery_app
@@ -18,7 +15,9 @@ from app.infrastructure.database import close_db, health_check_db
 from app.infrastructure.storage import STORAGE_CONN
 from app.infrastructure.vector_store import VECTOR_STORE_CONN
 from app.infrastructure.redis import REDIS_CONN
-from app.infrastructure.auth.jwt_middleware import jwt_middleware
+from app.utils.auth.jwt_middleware import jwt_middleware
+from app.api.v1 import kb, document, kb_qa
+from app.infrastructure.llms.api import llms
 
 
 # 创建FastAPI应用
@@ -41,12 +40,17 @@ app = FastAPI(
 # 确保日志配置在应用启动时被正确设置
 setup_logging()
 
+#==================================
 # 注册所有路由器
+#==================================
 app.include_router(kb.router, prefix="/api/v1", tags=["知识库管理"])
 app.include_router(document.router, prefix="/api/v1", tags=["文档管理"])
 app.include_router(kb_qa.router, prefix="/api/v1", tags=["问答服务"])
-app.include_router(models.router, prefix="/api/v1", tags=["模型管理"])
+app.include_router(llms.router, prefix="/api/v1", tags=["模型服务"])
 
+#==================================
+# 配置中间件
+#==================================
 # 配置CORS中间件 - 直接使用FastAPI内置的CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
@@ -71,7 +75,9 @@ def run_celery_worker():
     except Exception as e:
         logging.error(f"Celery Worker 启动失败: {e}")
 
-# 初始化数据库
+#==================================
+# 初始化基础设施
+#==================================
 @app.on_event("startup")
 async def startup_event():
     """应用启动时初始化"""
@@ -146,24 +152,6 @@ async def root():
         "health": "/health",
         "api_base": "/api/v1"
     }
-
-# 自定义Swagger UI路由，使用备用CDN避免网络问题
-@app.get("/docs", include_in_schema=False)
-async def custom_swagger_ui_html():
-    """自定义Swagger UI，使用备用CDN资源"""
-    return get_swagger_ui_html(
-        openapi_url="/openapi.json",
-        title=f"{APP_NAME} - API文档",
-        swagger_js_url="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
-        swagger_css_url="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css",
-        swagger_ui_parameters={
-            "deepLinking": True,
-            "displayRequestDuration": True,
-            "filter": True,
-            "showExtensions": True,
-            "showCommonExtensions": True,
-        }
-    )
 
 # 健康检查
 @app.get("/health")

@@ -151,7 +151,7 @@ class BaseModelFactory(ABC, Generic[T]):
 
         return provider, model
     
-    def _get_model_para(self, provider: str, model: str) -> Dict[str, Any]:
+    def get_model_params(self, provider: str, model: str) -> Dict[str, Any]:
         """
         获取模型参数（合并provider和model配置）
         
@@ -238,7 +238,7 @@ class BaseModelFactory(ABC, Generic[T]):
             provider, model = default_provider, default_model
         
         # 获取模型参数
-        model_para = self._get_model_para(provider, model)
+        model_para = self.get_model_params(provider, model)
         if not model_para["success"]:
             raise ValueError(f"获取模型参数失败: {model_para.get('error', '未知错误')}")
 

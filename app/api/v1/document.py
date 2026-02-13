@@ -1,7 +1,7 @@
 import os
 import urllib.parse
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status
@@ -23,7 +23,7 @@ from app.services.doc_parser_service import DocParserService
 from app.services.common.file_service import FileService, FileUsage
 
 
-router = APIRouter(prefix="/api/documents", tags=["文档管理"])
+router = APIRouter(prefix="/documents", tags=["文档管理"])
 
 # 上传文件
 @router.post("/upload", response_model=list[FileUploadResult])
@@ -486,9 +486,9 @@ async def get_document_chunks(
             detail={"message": f"获取文档切片列表失败: {str(e)}"}
         )
 
-@router.post("/chunks/batch", response_model=DocumentChunksResponse)
+@router.get("/chunks/batch", response_model=DocumentChunksResponse)
 async def get_documents_chunks_batch(
-    doc_ids: Union[str] = Form(..., description="文档ID列表，可以是逗号分隔的字符串或列表"),
+    doc_ids: str = Query(..., description="文档ID列表，逗号分隔"),
     with_vector: bool = Query(False, description="是否返回向量"),
     page: int = Query(1, description="页码", ge=1),
     page_size: int = Query(20, description="每页数量", ge=1, le=100),

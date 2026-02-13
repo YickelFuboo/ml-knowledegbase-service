@@ -231,7 +231,7 @@ class DocVectorStoreService:
                 for kb_id in kb_ids:
                     space_names.append(f"{tenant_id}_{kb_id}")
         else:
-            space_names.append(tenant_ids)  
+            space_names = tenant_ids
             new_condition["kb_id"] = kb_ids
 
         # 转换请求

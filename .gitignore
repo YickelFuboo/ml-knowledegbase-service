@@ -18,9 +18,9 @@ logs/
 *.log
 
 # Environment files
-.env
-.env.dev
-!.env.example
+env
+env.dev
+!env.example
 
 # Database
 *.db

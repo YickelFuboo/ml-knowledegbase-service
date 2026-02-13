@@ -23,11 +23,11 @@ class KB(Base, TimestampMixin):
     # 知识库语言，默认为中文或英文
     language = Column(String(32), nullable=True, default="Chinese" if "zh_CN" in os.getenv("LANG", "") else "English", comment="English|Chinese", index=True)
     
-    # 所有者ID
-    owner_id = Column(String(32), nullable=False, index=True, comment="所有者用户ID")
+    # 所有者ID（UUID 为 36 字符）
+    owner_id = Column(String(36), nullable=False, index=True, comment="所有者用户ID")
     
-    # 租户ID
-    tenant_id = Column(String(32), nullable=True, index=True, comment="所属租户ID")
+    # 租户ID（UUID 为 36 字符）
+    tenant_id = Column(String(36), nullable=True, index=True, comment="所属租户ID")
     
     # 文档数量
     doc_num = Column(Integer, default=0, index=True)

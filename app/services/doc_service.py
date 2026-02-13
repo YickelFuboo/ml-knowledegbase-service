@@ -107,7 +107,8 @@ class DocumentService:
                 parser_config=kb.parser_config,
                 source_type=FileSource.UPLOAD,
                 created_by=created_by,
-                thumbnail_id=thumbnail_id
+                thumbnail_id=thumbnail_id,
+                process_status=ProcessStatus.INIT
             )
             
             session.add(document)
