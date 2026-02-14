@@ -178,6 +178,8 @@ async def chat(
             use_kg=request.use_kg,
             tavily_api_key=request.tavily_api_key,
             temperature=request.temperature,
+            chat_model_provider=request.chat_model_provider,
+            chat_model_name=request.chat_model_name,
             is_stream=request.is_stream
         )
         
@@ -253,6 +255,8 @@ async def chat_stream(
             use_kg=request.use_kg,
             tavily_api_key=request.tavily_api_key,
             temperature=request.temperature,
+            chat_model_provider=request.chat_model_provider,
+            chat_model_name=request.chat_model_name,
             is_stream=True
         )
         
@@ -396,6 +400,8 @@ async def kb_query_stream(
             enable_web_search=request.enable_web_search,
             enable_knowledge_graph=request.enable_knowledge_graph,
             target_language=request.target_language,
+            chat_model_provider=request.chat_model_provider,
+            chat_model_name=request.chat_model_name,
             is_stream=True
         )
         

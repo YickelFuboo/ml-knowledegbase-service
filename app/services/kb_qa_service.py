@@ -20,7 +20,7 @@ from app.rag_core.utils import num_tokens_from_string
 
 
 KB_CHAT_PROMPT = """
-角色：你是一个智能助手，名字叫小智。
+角色：你是AI助手魔灵（Moling），请根据用户的问题，给出详细的回答。
 任务：基于知识库信息总结并回答用户的问题。
 要求和限制：
   - 不要编造信息，特别是数字。
@@ -159,13 +159,15 @@ class QAService:
 
     @staticmethod
     async def kb_query(
-        session: AsyncSession,          
+        db: AsyncSession,          
         tenant_id: str,      # 租户ID
         user_id: str,        # 用户ID
         kb_ids: List[str],   # 知识库ID列表
         question: str,       # 用户问题
         history_messages: Optional[List[ChatMessage]] = None, # 历史对话消息列表
         doc_ids: Optional[List[str]] = None, # 指定检索的文档ID列表
+        chat_model_provider: Optional[str] = None,
+        chat_model_name: Optional[str] = None,
         enable_quote: bool = True,
         enable_multi_questions: bool = False,        
         enable_keyword_extraction: bool = False,
@@ -177,7 +179,7 @@ class QAService:
     ):
         try:            
             # 获取知识库信息
-            kbs = await KBService.get_kb_by_ids(session, kb_ids)
+            kbs = await KBService.get_kb_by_ids(db, kb_ids)
             if not kbs:
                 raise ValueError("知识库不存在")
             
@@ -188,7 +190,7 @@ class QAService:
             
             # 创建模型
             embd_mdl = LLMBundle(kbs[0].tenant_id, LLMType.EMBEDDING, provider=kbs[0].embd_provider_name, model=kbs[0].embd_model_name)
-            chat_mdl = LLMBundle(kbs[0].tenant_id, LLMType.CHAT)
+            chat_mdl = LLMBundle(kbs[0].tenant_id, LLMType.CHAT, provider=chat_model_provider, model=chat_model_name)
             rerank_mdl = LLMBundle(kbs[0].tenant_id, LLMType.RERANK, provider=kbs[0].rerank_provider_name, model=kbs[0].rerank_model_name)
                         
             max_tokens = chat_mdl.max_length if hasattr(chat_mdl, 'max_length') else 8192
@@ -196,7 +198,7 @@ class QAService:
             kb_ids = [kb.id for kb in kbs]
             
             # 1. =====尝试使用SQL查询（如果知识库支持）
-            field_map = await KBService.get_field_map(session, kb_ids)
+            field_map = await KBService.get_field_map(db, kb_ids)
             if field_map:
                 # 禁用最新一条消息进行SQL查询
                 logging.info(f" Try uuse SQL to retrieval: {question}")
@@ -227,7 +229,7 @@ class QAService:
             # 2.1 启动Deep Search方式检索
             if enable_deep_research:
                 reasoner = DeepResearcher(
-                    session,
+                    db,
                     chat_mdl,
                     {"tavily_api_key": settings.tavily_api_key, "use_kg": enable_knowledge_graph},
                     partial(RETRIEVALER.retrieval, 
@@ -265,7 +267,7 @@ class QAService:
                         doc_ids=doc_ids if doc_ids else None,
                         top=DEFAULT_TOP_K,
                         aggs=False,
-                        rank_feature=await label_question(session, question, kbs)
+                        rank_feature=await label_question(db, question, kbs)
                     )
 
                 # 2.3 集成Tavily外部知识源
@@ -297,7 +299,7 @@ class QAService:
                         logging.warning(f"知识图谱检索失败: {e}")
                             
                 # 格式化知识库内容
-                knowledges = await kb_prompt(session, kbinfos, max_tokens)
+                knowledges = await kb_prompt(db, kbinfos, max_tokens)
 
             if not knowledges:
                 yield {
@@ -375,443 +377,6 @@ class QAService:
             yield error_response
 
     #===========如上是成功重构后的方法=======
-
-    @staticmethod
-    async def single_ask(
-        session: AsyncSession,
-        request: SingleQaRequest,
-        user_id: str,
-        tenant_id: str,
-        is_stream: bool = False
-    ):
-        """问答服务"""
-        try:
-            # 获取知识库信息
-            kbs = await KBService.get_kb_by_ids(session, request.kb_ids)
-            if not kbs:
-                raise ValueError("知识库不存在")
-            
-            # 检查知识库是否使用相同的嵌入模型
-            embedding_list = list(set([kb.embd_model_name for kb in kbs]))
-            if len(embedding_list) > 1:
-                raise ValueError("知识库使用了不同的嵌入模型，无法同时检索")
-            
-            # 检查是否为知识图谱模式
-            is_knowledge_graph = all([kb.parser_id == ParserType.KG for kb in kbs])
-            retriever = KG_RETRIEVALER if is_knowledge_graph else RETRIEVALER
-            
-            # 创建模型
-            embd_mdl = LLMBundle(kbs[0].tenant_id, LLMType.EMBEDDING, provider=kbs[0].embd_provider_name, model=kbs[0].embd_model_name)
-            chat_mdl = LLMBundle(kbs[0].tenant_id, LLMType.CHAT)
-            
-            max_tokens = chat_mdl.max_length if hasattr(chat_mdl, 'max_length') else 8192
-            tenant_ids = list(set([kb.tenant_id for kb in kbs]))
-            kb_ids = [kb.id for kb in kbs]
-            
-            # 执行检索
-            kbinfos = await retriever.retrieval(
-                question=request.question,
-                embd_mdl=embd_mdl,
-                tenant_ids=tenant_ids,
-                kb_ids=kb_ids,
-                page=1,
-                page_size=12,
-                similarity_threshold=0.1,
-                vector_similarity_weight=0.3,
-                aggs=False,
-                rank_feature=await label_question(session, request.question, kbs)
-            )
-            
-            # 格式化知识库内容
-            knowledges = await kb_prompt(session, kbinfos, max_tokens)
-            
-            # 构建提示词
-            prompt = """
-角色：你是一个智能助手，名字叫小智。
-任务：基于知识库信息总结并回答用户的问题。
-要求和限制：
-  - 不要编造信息，特别是数字。
-  - 如果知识库中的信息与用户问题无关，请直接说：抱歉，没有找到相关信息。
-  - 使用markdown格式回答。
-  - 使用用户问题的语言回答。
-  - 不要编造信息，特别是数字。
-
-### 知识库信息
-%s
-
-以上是知识库中的信息。
-
-""" % "\n".join(knowledges)
-            
-            msg = [{"role": "user", "content": request.question}]
-            
-            async def decorate_answer(answer):
-                nonlocal kbinfos
-                
-                # 插入引用
-                answer, idx = await retriever.insert_citations(
-                    answer, 
-                    [ck["content_ltks"] for ck in kbinfos["chunks"]], 
-                    [ck["vector"] for ck in kbinfos["chunks"]], 
-                    embd_mdl, 
-                    tkweight=0.7, 
-                    vtweight=0.3
-                )
-                
-                idx = set([kbinfos["chunks"][int(i)]["doc_id"] for i in idx])
-                recall_docs = [d for d in kbinfos["doc_aggs"] if d["doc_id"] in idx]
-                if not recall_docs:
-                    recall_docs = kbinfos["doc_aggs"]
-                kbinfos["doc_aggs"] = recall_docs
-                
-                refs = deepcopy(kbinfos)
-                for c in refs["chunks"]:
-                    if c.get("vector"):
-                        del c["vector"]
-                
-                if answer.lower().find("invalid key") >= 0 or answer.lower().find("invalid api") >= 0:
-                    answer += " 请在'用户设置 -> 模型提供商 -> API密钥'中设置LLM API密钥"
-                
-                refs["chunks"] = chunks_format(refs)
-                return {"answer": answer, "reference": refs}
-            
-            # 生成回答
-            if is_stream:
-                # 流式生成
-                answer = ""
-                async for ans in chat_mdl.chat_stream(prompt, msg, {"temperature": 0.1}):
-                    answer = ans
-                    yield {"answer": answer, "reference": {}}
-                
-                # 最后返回完整结果和引用信息
-                final_response = await decorate_answer(answer)
-                final_response["prompt"] = prompt
-                final_response["created_at"] = time.time()
-                yield final_response
-            else:
-                # 非流式生成
-                answer = await chat_mdl.chat(prompt, msg, {"temperature": 0.1})
-                final_response = await decorate_answer(answer)
-                final_response["prompt"] = prompt
-                final_response["created_at"] = time.time()
-                yield final_response
-                
-        except Exception as e:
-            logging.error(f"问答服务执行失败: {e}")
-            error_response = {
-                "answer": f"抱歉，处理您的问题时出现了错误：{str(e)}",
-                "reference": {"total": 0, "chunks": [], "doc_aggs": []},
-                "prompt": "",
-                "created_at": time.time()
-            }
-            yield error_response
-
-    @staticmethod
-    async def chat(
-        session: AsyncSession,
-        messages: List[ChatMessage],
-        user_id: str,
-        kb_ids: List[str],
-        doc_ids: Optional[List[str]] = None,
-        system_prompt: Optional[str] = None,
-        top_n: int = 12,
-        similarity_threshold: float = 0.1,
-        vector_similarity_weight: float = 0.3,
-        top_k: int = 5,
-        enable_quote: bool = True,
-        enable_multiturn_refine: bool = False,
-        target_language: Optional[str] = None,
-        enable_keyword_extraction: bool = False,
-        enable_deep_research: bool = False,
-        use_kg: bool = False,
-        tavily_api_key: Optional[str] = None,
-        temperature: float = 0.1,
-        is_stream: bool = True
-    ):
-        """多轮对话服务"""
-        try:
-            # 验证最后一条消息必须是用户消息
-            if not messages or messages[-1].role != "user":
-                raise ValueError("最后一条消息必须是用户消息")
-            
-            # 获取知识库信息
-            kbs = await KBService.get_kb_by_ids(session, kb_ids)
-            if not kbs:
-                raise ValueError("知识库不存在")
-            
-            # 检查知识库是否使用相同的嵌入模型
-            embedding_list = list(set([kb.embd_model_name for kb in kbs]))
-            if len(embedding_list) > 1:
-                raise ValueError("知识库使用了不同的嵌入模型，无法同时检索")
-            
-            # 创建模型
-            embd_mdl = LLMBundle(kbs[0].tenant_id, LLMType.EMBEDDING, provider=kbs[0].embd_provider_name, model=kbs[0].embd_model_name)
-            chat_mdl = LLMBundle(kbs[0].tenant_id, LLMType.CHAT)
-            rerank_mdl = LLMBundle(kbs[0].tenant_id, LLMType.RERANK, provider=kbs[0].rerank_provider_name, model=kbs[0].rerank_model_name)
-                        
-            max_tokens = chat_mdl.max_length if hasattr(chat_mdl, 'max_length') else 8192
-            tenant_ids = list(set([kb.tenant_id for kb in kbs]))
-            kb_ids = [kb.id for kb in kbs]
-
-            # 初始化检索器
-            retriever = RETRIEVALER
-
-            # 提取最后3条用户消息
-            user_messages = [m.content for m in messages if m.role == "user"]
-            questions = user_messages[-3:] if len(user_messages) >= 3 else user_messages
-            
-            # 处理多轮对话问题优化
-            if len(questions) > 1 and enable_multiturn_refine:
-                questions = [await full_question(tenant_ids[0], LLMType.CHAT, [msg.to_dict() for msg in messages])]
-            else:
-                questions = questions[-1:]
-            
-            # 1. 尝试使用SQL查询（如果知识库支持）
-            field_map = await KBService.get_field_map(session, kb_ids)
-            if field_map:
-                logging.debug(f"Use SQL to retrieval: {questions[-1]}")
-                sql_result = await QAService.use_sql(
-                    questions[-1], field_map, tenant_ids[0], chat_mdl, enable_quote
-                )
-                if sql_result:
-                    yield sql_result
-                    return
-
-            # 2. 问题转化处理目标语言
-            if target_language:
-                questions = [await cross_languages(tenant_ids[0], LLMType.CHAT, questions[0], [target_language])]
-            
-            # 3. 处理关键词提取
-            if enable_keyword_extraction:
-                questions[-1] += await keyword_extraction(chat_mdl, questions[-1])
-            
-            # 初始化知识库信息
-            thought = ""
-            kbinfos = {"total": 0, "chunks": [], "doc_aggs": []}
-            knowledges = []
-
-            # 是否启动推理过程（预埋）
-            if enable_deep_research:
-                reasoner = DeepResearcher(
-                    session,
-                    chat_mdl,
-                    {"tavily_api_key": tavily_api_key, "use_kg": use_kg},
-                    partial(retriever.retrieval, embd_mdl=embd_mdl, tenant_ids=tenant_ids, kb_ids=kb_ids, page=1, page_size=top_n, similarity_threshold=0.2, vector_similarity_weight=0.3),
-                )
-                
-                # 执行推理过程
-                async for think in reasoner.thinking(kbinfos, " ".join(questions)):
-                    if isinstance(think, str):
-                        # 如果是字符串，保存思考过程和知识
-                        thought = think
-                        knowledges = [t for t in think.split("\n") if t]
-                    elif is_stream:
-                        # 如果是流式输出，直接返回
-                        yield think
-            else:     
-                # 4. 执行知识库检索
-                if embd_mdl:
-                    kbinfos = await retriever.retrieval(
-                        question=" ".join(questions),
-                        embd_mdl=embd_mdl,
-                        tenant_ids=tenant_ids,
-                        kb_ids=kb_ids,
-                        page=1,
-                        page_size=top_n,
-                        similarity_threshold=similarity_threshold,
-                        vector_similarity_weight=vector_similarity_weight,
-                        doc_ids=doc_ids,
-                        top=top_k,
-                        aggs=False,
-                        rank_feature=await label_question(session, " ".join(questions), kbs)
-                    )
-
-                # 5. 集成Tavily外部知识源
-                if tavily_api_key:
-                    try:
-                        tav = Tavily()
-                        tav_res = await tav.retrieve_chunks(" ".join(questions))
-                        if tav_res and tav_res.get("chunks"):
-                            kbinfos["chunks"].extend(tav_res["chunks"])
-                            kbinfos["total"] = len(kbinfos["chunks"])
-                        if tav_res and tav_res.get("doc_aggs"):
-                            kbinfos["doc_aggs"].extend(tav_res["doc_aggs"])
-                    except Exception as e:
-                        logging.warning(f"Tavily外部知识源检索失败: {e}")
-                
-                # 6. 集成知识图谱检索
-                if use_kg:
-                    try:
-                        ck = await KG_RETRIEVALER.retrieval(
-                            " ".join(questions), 
-                            tenant_ids, 
-                            kb_ids, 
-                            embd_mdl, 
-                            chat_mdl(tenant_ids[0], LLMType.CHAT)
-                        )
-                        if ck and ck.get("content_with_weight"):
-                            kbinfos["chunks"].insert(0, ck)  # 将知识图谱结果插入到最前面
-                    except Exception as e:
-                        logging.warning(f"知识图谱检索失败: {e}")
-                            
-                # 格式化知识库内容
-                knowledges = await kb_prompt(session, kbinfos, max_tokens)
-
-            if not knowledges:
-                yield {
-                    "answer": "抱歉，没有找到相关信息。",
-                    "reference": {"total": 0, "chunks": [], "doc_aggs": []},
-                    "prompt": "",
-                    "created_at": time.time()
-                }
-                return
-            
-            # 构建系统提示词
-            system_prompt_content = system_prompt or """
-角色：你是一个智能助手，名字叫小智。
-任务：基于知识库信息总结并回答用户的问题。
-要求和限制：
-  - 不要编造信息，特别是数字。
-  - 如果知识库中的信息与用户问题无关，请直接说：抱歉，没有找到相关信息。
-  - 使用markdown格式回答。
-  - 使用用户问题的语言回答。
-  - 不要编造信息，特别是数字。
-
-### 知识库信息
-{knowledge}
-
-以上是知识库中的信息。
-"""
-            
-            # 构建消息列表
-            msg = [{"role": "system", "content": system_prompt_content.format(knowledge="\n------\n" + "\n\n------\n\n".join(knowledges))}]
-            
-            # 添加历史消息，清理引用标记
-            for m in messages:
-                if m.role != "system":
-                    content = re.sub(r"##\d+\$\$", "", m.content)
-                    msg.append({"role": m.role, "content": content})
-
-            # 调整消息长度以适应token限制
-            used_token_count, msg = message_fit_in(msg, int(max_tokens * 0.95))
-            assert len(msg) >= 2, f"message_fit_in has bug: {msg}"
-            prompt = msg[0]["content"]
-            
-            async def decorate_answer(answer):
-                """装饰和格式化最终答案"""
-                nonlocal kbinfos, prompt, questions
-                
-                refs = []
-
-                # 分离思考过程和最终答案
-                ans = answer.split("</think>")
-                think = ""
-                if len(ans) == 2:
-                    think = ans[0] + "</think>"
-                    answer = ans[1]
-                
-                # 处理引用插入
-                if knowledges and enable_quote:
-                    idx = set([])
-                    
-                    # 如果答案中没有引用标记且启用了嵌入模型，自动插入引用
-                    if embd_mdl and not re.search(r"\[ID:([0-9]+)\]", answer):
-                        answer, idx = await retriever.insert_citations(
-                            answer,
-                            [ck["content_ltks"] for ck in kbinfos["chunks"]],
-                            [ck["vector"] for ck in kbinfos["chunks"]],
-                            embd_mdl,
-                            tkweight=1 - vector_similarity_weight,
-                            vtweight=vector_similarity_weight,
-                        )
-                    else:
-                        # 如果答案中已有引用标记，提取引用索引
-                        for match in re.finditer(r"\[ID:([0-9]+)\]", answer):
-                            i = int(match.group(1))
-                            if i < len(kbinfos["chunks"]):
-                                idx.add(i)
-
-                    # 修复错误的引用格式
-                    answer, idx = QAService.repair_bad_citation_formats(answer, kbinfos, idx)
-                    
-                    # 处理文档聚合信息，只保留被引用的文档
-                    idx = set([kbinfos["chunks"][int(i)]["doc_id"] for i in idx])
-                    recall_docs = [d for d in kbinfos["doc_aggs"] if d["doc_id"] in idx]
-                    if not recall_docs:
-                        recall_docs = kbinfos["doc_aggs"]
-                    kbinfos["doc_aggs"] = recall_docs
-                    
-                    # 准备引用信息，移除向量数据以减小响应大小
-                    refs = deepcopy(kbinfos)
-                    for c in refs["chunks"]:
-                        if c.get("vector"):
-                            del c["vector"]
-                
-                # 处理API密钥错误
-                if answer.lower().find("invalid key") >= 0 or answer.lower().find("invalid api") >= 0:
-                    answer += " 请在'用户设置 -> 模型提供商 -> API密钥'中设置LLM API密钥"
-                
-                # 计算token使用情况
-                tk_num = num_tokens_from_string(think + answer)
-                prompt += "\n\n### Query:\n%s" % " ".join(questions)
-                prompt += f"\n\n## Token usage:\n  - Generated tokens(approximately): {tk_num}\n"
-                
-                return {"answer": answer, "reference": refs, "prompt": prompt, "created_at": time.time()}
-            
-            # 生成回答
-            if is_stream:
-                # 流式生成
-                last_ans = ""
-                answer = ""
-                
-                # 流式生成答案
-                async for ans in chat_mdl.chat_stream(msg[0]["content"], msg[1:], {"temperature": temperature}):
-                    # 如果存在思考过程，移除思考部分
-                    if thought:
-                        ans = re.sub(r"^.*</think>", "", ans, flags=re.DOTALL)
-                    answer = ans
-                    
-                    # 计算增量内容
-                    delta_ans = ans[len(last_ans):]
-                    
-                    # 如果增量内容token数太少，跳过此次输出
-                    if num_tokens_from_string(delta_ans) < 16:
-                        continue
-                        
-                    last_ans = answer
-                    
-                    # 返回增量内容
-                    yield {"answer": thought + answer, "reference": {}}
-                
-                # 处理最后的增量内容
-                delta_ans = answer[len(last_ans):]
-                if delta_ans:
-                    yield {"answer": thought + answer, "reference": {}}
-
-                kbinfos["chunks"] = chunks_format(kbinfos)
-                    
-                # 返回最终装饰后的完整答案
-                yield await decorate_answer(answer)
-            else:
-                # 非流式输出模式：一次性生成完整答案
-                answer = await chat_mdl.chat(msg[0]["content"], msg[1:], {"temperature": temperature})
-                
-                # 记录对话日志
-                user_content = msg[-1].get("content", "[content not available]")
-                logging.debug("User: {}|Assistant: {}".format(user_content, answer))
-                
-                # 装饰答案
-                yield await decorate_answer(answer)
-                
-        except Exception as e:
-            logging.error(f"多轮对话服务执行失败: {e}")
-            error_response = {
-                "answer": f"抱歉，处理您的问题时出现了错误：{str(e)}",
-                "reference": {"total": 0, "chunks": [], "doc_aggs": []},
-                "prompt": "",
-                "created_at": time.time()
-            }
-            yield error_response
 
     @staticmethod
     async def use_sql(question: str, field_map: dict, tenant_id: str, chat_mdl, quota: bool = True):

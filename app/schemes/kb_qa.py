@@ -7,7 +7,7 @@ class ChatMessage(BaseModel):
     """聊天消息模型"""
     role: str = Field(..., description="消息角色: user, assistant, system")
     content: str = Field(..., description="消息内容")
-    
+
     def to_dict(self) -> Dict[str, str]:
         """转换为字典格式"""
         return {"role": self.role, "content": self.content}
@@ -16,6 +16,8 @@ class SingleQaRequest(BaseModel):
     """单次问答请求模型"""
     question: str = Field(..., description="用户问题", min_length=1, max_length=2000)
     kb_ids: List[str] = Field(..., description="知识库ID列表", min_items=1)
+    chat_model_provider: Optional[str] = Field(None, description="指定Chat模型提供商，不传则使用默认")
+    chat_model_name: Optional[str] = Field(None, description="指定Chat模型名称，不传则使用默认")
 
 
 class ChatRequest(BaseModel):
@@ -40,6 +42,8 @@ class ChatRequest(BaseModel):
     tavily_api_key: Optional[str] = Field(None, description="Tavily API密钥，用于外部知识源检索")
     # LLM配置
     temperature: float = Field(0.1, description="生成温度", ge=0.0, le=2.0)
+    chat_model_provider: Optional[str] = Field(None, description="指定Chat模型提供商，不传则使用默认")
+    chat_model_name: Optional[str] = Field(None, description="指定Chat模型名称，不传则使用默认")
 
 
 class KbQueryRequest(BaseModel):
@@ -56,6 +60,8 @@ class KbQueryRequest(BaseModel):
     enable_web_search: bool = Field(False, description="是否启用网络搜索")
     enable_knowledge_graph: bool = Field(False, description="是否启用知识图谱检索")
     target_language: Optional[str] = Field(None, description="目标语言代码，如：zh、en、ja等")
+    chat_model_provider: Optional[str] = Field(None, description="指定Chat模型提供商，不传则使用默认")
+    chat_model_name: Optional[str] = Field(None, description="指定Chat模型名称，不传则使用默认")
 
 class DocumentReference(BaseModel):
     """文档引用模型"""
