@@ -12,40 +12,6 @@ class ChatMessage(BaseModel):
         """转换为字典格式"""
         return {"role": self.role, "content": self.content}
 
-class SingleQaRequest(BaseModel):
-    """单次问答请求模型"""
-    question: str = Field(..., description="用户问题", min_length=1, max_length=2000)
-    kb_ids: List[str] = Field(..., description="知识库ID列表", min_items=1)
-    chat_model_provider: Optional[str] = Field(None, description="指定Chat模型提供商，不传则使用默认")
-    chat_model_name: Optional[str] = Field(None, description="指定Chat模型名称，不传则使用默认")
-
-
-class ChatRequest(BaseModel):
-    """多轮对话请求模型"""
-    messages: List[ChatMessage] = Field(..., description="对话消息列表", min_items=1)
-    kb_ids: List[str] = Field(..., description="知识库ID列表", min_items=1)
-    is_stream: bool = Field(True, description="是否流式返回")
-    doc_ids: Optional[List[str]] = Field(None, description="指定检索的文档ID列表")
-    # 对话配置参数
-    top_n: int = Field(12, description="检索文档数量", ge=1, le=50)
-    similarity_threshold: float = Field(0.1, description="相似度阈值", ge=0.0, le=1.0)
-    vector_similarity_weight: float = Field(0.3, description="向量相似度权重", ge=0.0, le=1.0)
-    top_k: int = Field(5, description="重排序后保留的文档数量", ge=1, le=20)
-    # 提示词配置
-    system_prompt: Optional[str] = Field(None, description="系统提示词")
-    enable_quote: bool = Field(True, description="是否启用引用")
-    enable_multiturn_refine: bool = Field(False, description="是否启用多轮对话优化")
-    target_language: Optional[str] = Field(None, description="目标语言代码，如：zh、en、ja等")
-    enable_keyword_extraction: bool = Field(False, description="是否启用关键词提取")
-    enable_deep_research: bool = Field(False, description="是否启用深度研究")
-    use_kg: bool = Field(False, description="是否启用知识图谱检索")
-    tavily_api_key: Optional[str] = Field(None, description="Tavily API密钥，用于外部知识源检索")
-    # LLM配置
-    temperature: float = Field(0.1, description="生成温度", ge=0.0, le=2.0)
-    chat_model_provider: Optional[str] = Field(None, description="指定Chat模型提供商，不传则使用默认")
-    chat_model_name: Optional[str] = Field(None, description="指定Chat模型名称，不传则使用默认")
-
-
 class KbQueryRequest(BaseModel):
     """知识库查询请求模型"""
     question: str = Field(..., description="用户问题")
@@ -95,14 +61,6 @@ class QaReference(BaseModel):
 
 class QaResponse(BaseModel):
     """问答响应模型"""
-    answer: str = Field(..., description="回答内容")
-    reference: Optional[QaReference] = Field(None, description="引用信息")
-    prompt: Optional[str] = Field(None, description="使用的提示词")
-    created_at: Optional[float] = Field(None, description="创建时间戳")
-
-
-class StreamQaResponse(BaseModel):
-    """流式问答响应模型"""
     answer: str = Field(..., description="回答内容")
     reference: Optional[QaReference] = Field(None, description="引用信息")
     prompt: Optional[str] = Field(None, description="使用的提示词")

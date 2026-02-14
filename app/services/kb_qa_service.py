@@ -6,7 +6,6 @@ from functools import partial
 from typing import Dict, Any, Generator, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
-from app.schemes.kb_qa import SingleQaRequest, ChatRequest, ChatMessage
 from app.services.kb_service import KBService
 from app.services.common.deep_research import DeepResearcher
 from app.rag_core.search_api import RETRIEVALER, KG_RETRIEVALER
@@ -17,6 +16,7 @@ from app.rag_core.utils import ParserType
 from app.rag_core.rag.app.resume import forbidden_select_fields4resume
 from app.infrastructure.web_search.tavily import Tavily
 from app.rag_core.utils import num_tokens_from_string
+from app.schemes.kb_qa import ChatMessage
 
 
 KB_CHAT_PROMPT = """
