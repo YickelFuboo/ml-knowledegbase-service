@@ -12,7 +12,7 @@ from dashscope import MultiModalConversation
 from app.config.settings import settings
 from app.utils.common import get_project_base_directory, is_english
 from app.infrastructure.llms.computervision_models.base.base import BaseComputerVision, MAX_RETRY_ATTEMPTS
-from app.aiframework.prompts import get_prompt_template
+from app.agent_frame.prompts import get_prompt_template
 
 
 class QWenCV(BaseComputerVision):

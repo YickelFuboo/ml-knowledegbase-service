@@ -16,13 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import UploadFile
 from sqlalchemy import select, and_, or_, func, desc, asc
 from pathlib import Path
-from app.models import Document, KB
-from app.models.document import ProcessStatus
+from app.domains.models import Document, KB, ProcessStatus
 from app.rag_core.utils import ParserType
 from app.constants.common import DocumentConstants, FileType, FileSource
-from app.schemes.document import FileUploadResult
-from app.services.common.file_service import FileService, FileUsage
-from app.services.common.doc_vector_store_service import DOC_STORE_CONN
+from app.domains.schemes.document import FileUploadResult
+from app.domains.services.common.file_service import FileService, FileUsage
+from app.domains.services.common.doc_vector_store_service import DOC_STORE_CONN
 from app.infrastructure.database import get_db
 
 
@@ -463,7 +462,7 @@ class DocumentService:
                 raise ValueError("文档不存在")
             
             # 2. 获取知识库信息
-            from app.services.kb_service import KBService
+            from app.domains.services.kb_service import KBService
             kb = await KBService.get_kb_by_id(session, old_document.kb_id)
             if not kb:
                 raise ValueError("知识库不存在")
@@ -626,7 +625,7 @@ class DocumentService:
                 return 0
             
             # 获取知识库信息以获取tenant_id
-            from app.services.kb_service import KBService
+            from app.domains.services.kb_service import KBService
             kb = await KBService.get_kb_by_id(session, document.kb_id)
             if not kb:
                 return 0
@@ -674,7 +673,7 @@ class DocumentService:
                 return [], 0
             
             # 获取知识库信息以获取tenant_id
-            from app.services.kb_service import KBService
+            from app.domains.services.kb_service import KBService
             kb = await KBService.get_kb_by_id(session, document.kb_id)
             if not kb:
                 return [], 0
@@ -746,7 +745,7 @@ class DocumentService:
                 raise ValueError(f"文档必须属于同一个知识库，当前文档分布在 {len(kb_ids)} 个不同的知识库中")
             
             # 获取知识库信息以获取tenant_id
-            from app.services.kb_service import KBService
+            from app.domains.services.kb_service import KBService
             kb = await KBService.get_kb_by_id(session, list(kb_ids)[0])
             if not kb:
                 raise ValueError("知识库不存在")
@@ -800,7 +799,7 @@ class DocumentService:
                 return
             
             # 获取知识库信息以获取tenant_id
-            from app.services.kb_service import KBService
+            from app.domains.services.kb_service import KBService
             kb = await KBService.get_kb_by_id(session, document.kb_id)
             if not kb:
                 logging.warning(f"知识库 {document.kb_id} 不存在，跳过删除chunks")

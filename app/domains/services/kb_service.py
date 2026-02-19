@@ -5,13 +5,13 @@ import logging
 import json
 from sqlalchemy import select, and_, func, desc, asc, or_
 import uuid
-from app.models import KB
+from app.domains.models import KB
 from app.constants.common import KBConstants
 from app.infrastructure.database import get_db
 from app.infrastructure.llms import embedding_factory
 from app.infrastructure.llms import rerank_factory
 from app.rag_core.utils import ParserType
-from app.services.common.doc_vector_store_service import DOC_STORE_CONN
+from app.domains.services.common.doc_vector_store_service import DOC_STORE_CONN
 from app.rag_core.constants import PAGERANK_FLD
 
 
@@ -418,7 +418,7 @@ class KBService:
                 raise ValueError("不是知识库Owner")
 
             # 删除KB下所有文档
-            from app.services.doc_service import DocumentService
+            from app.domains.services.doc_service import DocumentService
             documents, total = await DocumentService.get_documents_by_kb_id(session, kb_id)
             for document in documents:
                 await DocumentService.delete_document_by_id(session, document.id)

@@ -26,7 +26,7 @@ from dateutil.parser import parse as datetime_parse
 from ..nlp import rag_tokenizer, tokenize
 from ...deepdoc.parser.utils import get_text
 from ...deepdoc.parser import ExcelParser
-from app.services.kb_service import KBService
+from app.domains.services.kb_service import KBService
 
 
 class Excel(ExcelParser):

@@ -7,7 +7,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status
 from fastapi.responses import Response
 from app.infrastructure.database import get_db
-from app.schemes.document import (
+from app.domains.schemes.document import (
     FileUploadResult,
     DocumentResponse,
     ListDocumentResponse,
@@ -16,11 +16,11 @@ from app.schemes.document import (
     UpdateDocumentMetaFieldsRequest,
     ParserResult,
 )
-from app.models.document import ProcessStatus
-from app.services.kb_service import KBService
-from app.services.doc_service import DocumentService
-from app.services.doc_parser_service import DocParserService
-from app.services.common.file_service import FileService, FileUsage
+from app.domains.models import ProcessStatus
+from app.domains.services.kb_service import KBService
+from app.domains.services.doc_service import DocumentService
+from app.domains.services.doc_parser_service import DocParserService
+from app.domains.services.common.file_service import FileService, FileUsage
 
 
 router = APIRouter(prefix="/documents", tags=["文档管理"])

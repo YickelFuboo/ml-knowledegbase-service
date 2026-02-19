@@ -25,7 +25,7 @@ from .utils import get_entity_type2sampels, get_llm_cache, set_llm_cache, get_re
 from ..utils import num_tokens_from_string, get_float, get_uuid
 from ..rag.retrieval.search import Dealer, index_name
 from ..llm_service import LLMType, LLMBundle
-from app.services.common.doc_vector_store_service import OrderByExpr, DOC_STORE_CONN
+from app.domains.services.common.doc_vector_store_service import OrderByExpr, DOC_STORE_CONN
 
 
 class KGSearch(Dealer):
@@ -492,7 +492,7 @@ class KGSearch(Dealer):
 if __name__ == "__main__":
     import argparse
     from ..rag.retrieval import search
-    from app.services.kb_service import KBService
+    from app.domains.services.kb_service import KBService
 
 
 

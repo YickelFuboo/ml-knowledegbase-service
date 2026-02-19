@@ -36,7 +36,7 @@ from ...rag.retrieval import search
 from ...utils import get_uuid, timeout
 from ...search_api import RETRIEVALER
 from app.infrastructure.redis import RedisDistributedLock
-from app.services.common.doc_vector_store_service import DOC_STORE_CONN
+from app.domains.services.common.doc_vector_store_service import DOC_STORE_CONN
 
 
 

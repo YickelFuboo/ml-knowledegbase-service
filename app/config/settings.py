@@ -141,7 +141,13 @@ class Settings(BaseSettings):
     # =============================================================================
     # 模型配置说明 见：app/config/xxx.json
     # =============================================================================
-        
+
+    # =============================================================================
+    # Agent配置 - Agent 会话存储
+    # =============================================================================
+    agent_session_use_local_storage: bool = Field(default=False, description="为 True 时会话存本地文件，为 False 时存数据库", env="AGENT_SESSION_USE_LOCAL_STORAGE")
+    agent_session_storage_dir: str = Field(default="data/sessions", description="本地会话文件目录(仅本地存储时生效)", env="AGENT_SESSION_STORAGE_DIR")
+
     # =============================================================================
     # Web搜索配置 - Web Search
     # =============================================================================
@@ -160,7 +166,7 @@ class Settings(BaseSettings):
     # 并发限制配置
     max_concurrent_chunk_builders: int = Field(default=4, description="最大并发文档切片构建器数量", env="MAX_CONCURRENT_CHUNK_BUILDERS")
     max_concurrent_minio: int = Field(default=10, description="最大并发MinIO操作数量", env="MAX_CONCURRENT_MINIO")
-    
+
     class Config:
         env_file = os.path.join(PROJECT_BASE_DIR, "env")
         env_file_encoding = "utf-8"

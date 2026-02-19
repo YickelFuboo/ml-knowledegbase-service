@@ -13,16 +13,15 @@ from typing import List, Dict, Any, Optional, BinaryIO
 from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from timeit import default_timer as timer
-from app.models import Document, KB
+from app.domains.models import Document, KB, ProcessStatus
 from app.infrastructure.database import get_db
 from app.infrastructure.llms import llm_factory, embedding_factory
 from app.infrastructure.storage import STORAGE_CONN
 from app.infrastructure.vector_store import VECTOR_STORE_CONN
 from app.utils.progress_callback import ProgressCallback
-from app.models.document import ProcessStatus
-from app.services.common.doc_vector_store_service import DocVectorStoreService
-from app.services.common.file_service import FileService, FileUsage
-from app.services.doc_service import DocumentService
+from app.domains.services.common.doc_vector_store_service import DocVectorStoreService
+from app.domains.services.common.file_service import FileService, FileUsage
+from app.domains.services.doc_service import DocumentService
 from app.rag_core.constants import CHAT_LIMITER, CHUNK_LIMITER, MINIO_LIMITER, KG_LIMITER, TAG_FLD, PAGERANK_FLD, DOC_BULK_SIZE, EMBEDDING_BATCH_SIZE
 from app.rag_core.utils import ParserType, truncate, num_tokens_from_string
 from app.rag_core.chunk_api import CHUNK_FACTORY

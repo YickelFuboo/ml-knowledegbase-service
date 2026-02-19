@@ -26,7 +26,7 @@ from ..nlp import rag_tokenizer
 from ...deepdoc.parser.resume import refactor
 from ...deepdoc.parser.resume import step_one, step_two
 from ...utils import rmSpace
-from app.services.kb_service import KBService
+from app.domains.services.kb_service import KBService
 
 
 forbidden_select_fields4resume = [

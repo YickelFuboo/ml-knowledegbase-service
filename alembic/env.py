@@ -39,9 +39,10 @@ if os.path.exists(env_file_path):
         except Exception:
             pass
 
-# 导入模型和配置
-from app.models.base import Base
-from app.models import *  # 导入所有模型
+# 导入模型和配置（Base 统一使用 infrastructure/database；SessionRecord 单独导入避免循环依赖）
+from app.infrastructure.database.models_base import Base
+from app.domains.models import *
+from app.agent_frame.session.models import SessionRecord
 from app.config.settings import settings
 
 # this is the Alembic Config object, which provides

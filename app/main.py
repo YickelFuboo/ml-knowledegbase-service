@@ -16,9 +16,9 @@ from app.infrastructure.storage import STORAGE_CONN
 from app.infrastructure.vector_store import VECTOR_STORE_CONN
 from app.infrastructure.redis import REDIS_CONN
 from app.utils.auth.jwt_middleware import jwt_middleware
-from app.api.v1 import kb, document, kb_qa
+from app.domains.api import kb, document, kb_qa, llm_chat
 from app.infrastructure.llms.api import llms
-from app.agent_frame.api import router as agent_session_router
+from app.agent_frame.session.api import router as sessions
 
 
 # 创建FastAPI应用
@@ -48,7 +48,8 @@ app.include_router(kb.router, prefix="/api/v1", tags=["知识库管理"])
 app.include_router(document.router, prefix="/api/v1", tags=["文档管理"])
 app.include_router(kb_qa.router, prefix="/api/v1", tags=["问答服务"])
 app.include_router(llms.router, prefix="/api/v1", tags=["模型服务"])
-app.include_router(agent_session_router, prefix="/api/v1")
+app.include_router(sessions, prefix="/api/v1", tags=["会话管理"])
+app.include_router(llm_chat.router, prefix="/api/v1", tags=["LLM聊天"])
 
 #==================================
 # 配置中间件

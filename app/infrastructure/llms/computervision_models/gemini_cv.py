@@ -7,7 +7,7 @@ from transformers import GenerationConfig
 import asyncio
 from google.generativeai import GenerativeModel, client
 from app.infrastructure.llms.computervision_models.base.base import BaseComputerVision, MAX_RETRY_ATTEMPTS
-from app.aiframework.prompts import get_prompt_template
+from app.agent_frame.prompts import get_prompt_template
 
 
 class GeminiCV(BaseComputerVision):

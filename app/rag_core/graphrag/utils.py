@@ -28,7 +28,7 @@ from ..rag.retrieval import search
 from ..rag.nlp import rag_tokenizer
 from ..constants import CHAT_LIMITER
 from app.infrastructure.redis import REDIS_CONN
-from app.services.common.doc_vector_store_service import OrderByExpr, DOC_STORE_CONN
+from app.domains.services.common.doc_vector_store_service import OrderByExpr, DOC_STORE_CONN
 
 
 GRAPH_FIELD_SEP = "<SEP>"

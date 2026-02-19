@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Union
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ChatMessage(BaseModel):
@@ -14,8 +14,9 @@ class ChatMessage(BaseModel):
 
 class KbQueryRequest(BaseModel):
     """知识库查询请求模型"""
+    model_config = ConfigDict(protected_namespaces=())
     question: str = Field(..., description="用户问题")
-    history_messages: Optional[List[ChatMessage]] = Field(None, description="历史对话消息列表")
+    session_id: Optional[str] = Field(None, description="会话ID，传入则从会话获取历史记录")
     kb_ids: List[str] = Field(..., description="知识库ID列表", min_items=1)
     doc_ids: Optional[List[str]] = Field(None, description="指定检索的文档ID列表")
     # 功能开关
@@ -26,8 +27,8 @@ class KbQueryRequest(BaseModel):
     enable_web_search: bool = Field(False, description="是否启用网络搜索")
     enable_knowledge_graph: bool = Field(False, description="是否启用知识图谱检索")
     target_language: Optional[str] = Field(None, description="目标语言代码，如：zh、en、ja等")
-    chat_model_provider: Optional[str] = Field(None, description="指定Chat模型提供商，不传则使用默认")
-    chat_model_name: Optional[str] = Field(None, description="指定Chat模型名称，不传则使用默认")
+    model_provider: Optional[str] = Field(None, description="指定Chat模型提供商，不传则使用默认")
+    model_name: Optional[str] = Field(None, description="指定Chat模型名称，不传则使用默认")
 
 class DocumentReference(BaseModel):
     """文档引用模型"""
@@ -65,3 +66,4 @@ class QaResponse(BaseModel):
     reference: Optional[QaReference] = Field(None, description="引用信息")
     prompt: Optional[str] = Field(None, description="使用的提示词")
     created_at: Optional[float] = Field(None, description="创建时间戳")
+    session_id: Optional[str] = Field(None, description="会话ID，与请求中的 session_id 一致")

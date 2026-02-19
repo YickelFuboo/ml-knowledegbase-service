@@ -22,7 +22,7 @@ from ..nlp import rag_tokenizer
 from ...deepdoc.parser.utils import get_text
 from ...graphrag.utils import get_tags_from_cache, set_tags_to_cache
 from ...search_api import RETRIEVALER
-from app.services.kb_service import KBService
+from app.domains.services.kb_service import KBService
 
 
 def beAdoc(d, q, a, eng, row_num=-1):

@@ -2,12 +2,13 @@ import os
 from enum import StrEnum
 from sqlalchemy import Column, String, Text, Integer, Float, DateTime, Boolean, ForeignKey, JSON
 from sqlalchemy.orm import relationship
-from .base import Base, TimestampMixin
+from sqlalchemy.sql import func
+from app.infrastructure.database.models_base import Base
 from app.constants.common import KBConstants, PDFParser, KnowledgeGraphMethod
 from app.rag_core.utils import ParserType
 
 
-class KB(Base, TimestampMixin):
+class KB(Base):
     """知识库模型"""
     __tablename__ = "knowledgebase"
     
@@ -53,8 +54,10 @@ class KB(Base, TimestampMixin):
 
     # 知识库状态，1表示有效，0表示无效
     status = Column(String(1), nullable=True, default="1", index=True, comment="状态(0:无效, 1:有效)")
-    
-    # 关联关系
+
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
     documents = relationship("Document", back_populates="knowledgebase")
     
     def __str__(self):

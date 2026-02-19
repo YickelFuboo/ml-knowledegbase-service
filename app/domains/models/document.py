@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from sqlalchemy import Column, String, DateTime, Integer, Text, Boolean, ForeignKey, JSON, Enum as SQLEnum
 from sqlalchemy.orm import relationship
-from app.models.base import Base
+from app.infrastructure.database.models_base import Base
 from app.rag_core.utils import ParserType
 from app.constants.common import FileType, FileSource
 
@@ -39,6 +39,7 @@ class Document(Base):
         comment="文档处理状态"
     )
     created_by = Column(String(36), nullable=False, comment="创建者ID")
+
     created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
     

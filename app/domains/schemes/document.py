@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional, Any
 from pydantic import BaseModel, Field
-from app.models.document import ProcessStatus
+from app.domains.models import ProcessStatus
 
 
 class FileUploadResult(BaseModel):

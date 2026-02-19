@@ -4,9 +4,9 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Request
 from app.constants.common import KBConstants, PDFParser, KnowledgeGraphMethod
 from app.infrastructure.database import get_db
-from app.models import KB
-from app.services.kb_service import KBService
-from app.schemes.kb import (
+from app.domains.models import KB
+from app.domains.services.kb_service import KBService
+from app.domains.schemes.kb import (
     CreateKBRequest,
     UpdateKBRequest,
     KBResponse,

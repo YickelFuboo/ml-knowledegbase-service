@@ -23,7 +23,7 @@ from . import query
 from ..nlp import rag_tokenizer
 from ...utils import rmSpace, get_float
 from ...constants import TAG_FLD, PAGERANK_FLD
-from app.services.common.doc_vector_store_service import DocVectorStoreService, OrderByExpr
+from app.domains.services.common.doc_vector_store_service import DocVectorStoreService, OrderByExpr
 from app.infrastructure.vector_store import (
     SearchRequest,
     MatchDenseExpr, FusionExpr, 
