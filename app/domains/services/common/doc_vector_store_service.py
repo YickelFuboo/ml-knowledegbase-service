@@ -264,10 +264,10 @@ class DocVectorStoreService:
                 order_fields.append(sort_field)
 
             # 处理排名特征
-            rank_feature = None
-            if request.rank_feature:
-                rank_feature = RankFeature(
-                    fields=request.rank_feature,
+            rank_feature_struct = None
+            if rank_feature:
+                rank_feature_struct = RankFeature(
+                    fields=rank_feature,
                     exclude_fields=[PAGERANK_FLD],
                     field_prefix=TAG_FLD
                 )
@@ -281,10 +281,10 @@ class DocVectorStoreService:
                     offset=offset,
                     limit=limit,
                     agg_fields=aggFields,
-                    rank_feature=rank_feature_obj
+                    rank_feature=rank_feature_struct
                 )
 
-        return await self.store_conn.search(space_names, search_request)
+        return await self.store_conn.search(space_names, request)
 
     # 健康检查
     async def health_check(self) -> Dict[str, Any]:

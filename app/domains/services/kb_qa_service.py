@@ -120,7 +120,7 @@ class QAService:
         tenant_id: str,
         chat_mdl: LLMBundle,
         history_messages: Optional[List[ChatMessage]] = None,
-        enable_multi_questions:Optional[bool] = False, 
+        enable_multi_questions:Optional[bool] = True, 
         enable_keyword_extraction: Optional[bool] = False, 
         target_language: Optional[str] = None,
     ):
@@ -171,7 +171,7 @@ class QAService:
         model_provider: Optional[str] = None,
         model_name: Optional[str] = None,
         enable_quote: bool = True,
-        enable_multi_questions: bool = False,        
+        enable_multi_questions: bool = True,        
         enable_keyword_extraction: bool = False,
         enable_deep_research: bool = False,        
         enable_web_search: bool = False,
@@ -394,12 +394,12 @@ class QAService:
                 if delta_ans:
                     yield {"answer": thought + answer, "reference": {}, "session_id": active_session_id}
 
-                kbinfos["chunks"] = chunks_format(kbinfos)
-
                 # 返回最终装饰后的完整答案
                 final_answer = thought + answer
                 await session_manager.add_message(active_session_id, Message.assistant_message(final_answer))
                 last = await QAService._decorate_answer(final_answer, kbinfos, system_prompt, embd_mdl, RETRIEVALER, enable_quote)
+                if not last.get("answer") and kbinfos.get("chunks"):
+                    last["answer"] = "抱歉，模型未能生成回答，请重试。"
                 yield {**last, "session_id": active_session_id}
             else:
                 # 非流式输出模式：一次性生成完整答案

@@ -21,7 +21,7 @@ class KbQueryRequest(BaseModel):
     doc_ids: Optional[List[str]] = Field(None, description="指定检索的文档ID列表")
     # 功能开关
     enable_quote: bool = Field(True, description="是否启用引用")
-    enable_multi_questions: bool = Field(False, description="是否启用多问题生成")
+    enable_multi_questions: bool = Field(True, description="是否启用多问题生成")
     enable_keyword_extraction: bool = Field(False, description="是否启用关键词提取")
     enable_deep_research: bool = Field(False, description="是否启用深度研究")
     enable_web_search: bool = Field(False, description="是否启用网络搜索")
