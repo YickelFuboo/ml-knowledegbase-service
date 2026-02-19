@@ -18,6 +18,7 @@ from app.infrastructure.redis import REDIS_CONN
 from app.utils.auth.jwt_middleware import jwt_middleware
 from app.api.v1 import kb, document, kb_qa
 from app.infrastructure.llms.api import llms
+from app.agent_frame.api import router as agent_session_router
 
 
 # 创建FastAPI应用
@@ -47,6 +48,7 @@ app.include_router(kb.router, prefix="/api/v1", tags=["知识库管理"])
 app.include_router(document.router, prefix="/api/v1", tags=["文档管理"])
 app.include_router(kb_qa.router, prefix="/api/v1", tags=["问答服务"])
 app.include_router(llms.router, prefix="/api/v1", tags=["模型服务"])
+app.include_router(agent_session_router, prefix="/api/v1")
 
 #==================================
 # 配置中间件
