@@ -17,6 +17,7 @@ from app.rag_core.rag.app.resume import forbidden_select_fields4resume
 from app.infrastructure.web_search.tavily import Tavily
 from app.rag_core.utils import num_tokens_from_string
 from app.agent_frame.session.manager import session_manager
+from app.agent_frame.session.message import Message
 from app.domains.schemes.kb_qa import ChatMessage
 
 
@@ -180,17 +181,18 @@ class QAService:
         ):
         try:
             session = None
-            if session_id:
-                session = await session_manager.get_session(session_id)
+            active_session_id = session_id
+            if active_session_id:
+                session = await session_manager.get_session(active_session_id)
 
             if not session:
-                session_id = await session_manager.create_session(
+                active_session_id = await session_manager.create_session(
                     session_type="chat",
                     user_id=user_id,
                     description=question[:100] if question else "",
-                    llm_name=model_provider+"-"+model_name,
+                    llm_name=(model_provider or "") + "-" + (model_name or "default"),
                 )
-                session = await session_manager.get_session(session_id)
+                session = await session_manager.get_session(active_session_id)
                 if not session:
                     raise RuntimeError("创建会话失败")
 
@@ -201,7 +203,9 @@ class QAService:
                     ChatMessage(role=m.role.value, content=m.content or "")
                     for m in session.get_history_for_context()
                 ]
-            
+
+            await session_manager.add_message(active_session_id, Message.user_message(question))
+
             # 获取知识库信息
             kbs = await KBService.get_kb_by_ids(db, kb_ids)
             if not kbs:
@@ -230,7 +234,9 @@ class QAService:
                     question, field_map, tenant_ids[0], chat_mdl, enable_quote
                 )
                 if sql_result:
-                    yield {**sql_result, "session_id": session_id}
+                    answer_text = sql_result.get("answer", "")
+                    await session_manager.add_message(active_session_id, Message.assistant_message(answer_text))
+                    yield {**sql_result, "session_id": active_session_id}
                     return
 
             # 2. =====执行知识库检索
@@ -268,6 +274,7 @@ class QAService:
                 )
                 
                 # 执行推理过程
+                last_deep_answer = None
                 async for think in reasoner.thinking(kbinfos, question):
                     if isinstance(think, str):
                         # 如果是字符串，保存思考过程和知识
@@ -275,10 +282,14 @@ class QAService:
                         knowledges = [t for t in think.split("\n") if t]
                     elif is_stream:
                         # 如果是流式输出，直接返回，统一带上 session_id
+                        last_deep_answer = think.get("answer", think) if isinstance(think, dict) else think
                         if isinstance(think, dict):
-                            yield {**think, "session_id": session_id}
+                            yield {**think, "session_id": active_session_id}
                         else:
-                            yield {"answer": think, "session_id": session_id}
+                            yield {"answer": think, "session_id": active_session_id}
+                if last_deep_answer is not None:
+                    answer_content = last_deep_answer.get("answer", last_deep_answer) if isinstance(last_deep_answer, dict) else last_deep_answer
+                    await session_manager.add_message(active_session_id, Message.assistant_message(str(answer_content)))
             else:     
                 # 2.2 执行知识库检索
                 if embd_mdl:
@@ -334,7 +345,7 @@ class QAService:
                     "reference": {"total": 0, "chunks": [], "doc_aggs": []},
                     "prompt": "",
                     "created_at": time.time(),
-                    "session_id": session_id
+                    "session_id": active_session_id
                 }
                 return
             
@@ -376,25 +387,28 @@ class QAService:
                     last_ans = answer
                     
                     # 返回增量内容
-                    yield {"answer": thought + answer, "reference": {}, "session_id": session_id}
+                    yield {"answer": thought + answer, "reference": {}, "session_id": active_session_id}
 
                 # 处理最后的增量内容
                 delta_ans = answer[len(last_ans):]
                 if delta_ans:
-                    yield {"answer": thought + answer, "reference": {}, "session_id": session_id}
+                    yield {"answer": thought + answer, "reference": {}, "session_id": active_session_id}
 
                 kbinfos["chunks"] = chunks_format(kbinfos)
 
                 # 返回最终装饰后的完整答案
-                last = await QAService._decorate_answer(thought + answer, kbinfos, system_prompt, embd_mdl, RETRIEVALER, enable_quote)
-                yield {**last, "session_id": session_id}
+                final_answer = thought + answer
+                await session_manager.add_message(active_session_id, Message.assistant_message(final_answer))
+                last = await QAService._decorate_answer(final_answer, kbinfos, system_prompt, embd_mdl, RETRIEVALER, enable_quote)
+                yield {**last, "session_id": active_session_id}
             else:
                 # 非流式输出模式：一次性生成完整答案
                 answer = await chat_mdl.chat(system_prompt, msgs, {"temperature": DEFAULT_TEMPERATURE})
 
                 # 装饰答案
                 result = await QAService._decorate_answer(answer, kbinfos, system_prompt, embd_mdl, RETRIEVALER, enable_quote)
-                yield {**result, "session_id": session_id}
+                await session_manager.add_message(active_session_id, Message.assistant_message(answer))
+                yield {**result, "session_id": active_session_id}
 
         except Exception as e:
             logging.error(f"多轮对话服务执行失败: {e}")
@@ -403,11 +417,10 @@ class QAService:
                 "reference": {"total": 0, "chunks": [], "doc_aggs": []},
                 "prompt": "",
                 "created_at": time.time(),
-                "session_id": session_id
+                "session_id": active_session_id
             }
             yield error_response
 
-    #===========如上是成功重构后的方法=======
 
     @staticmethod
     async def use_sql(question: str, field_map: dict, tenant_id: str, chat_mdl, quota: bool = True):

@@ -281,10 +281,10 @@ class DocVectorStoreService:
                     offset=offset,
                     limit=limit,
                     agg_fields=aggFields,
-                    rank_feature=rank_feature
+                    rank_feature=rank_feature_obj
                 )
 
-        return await self.store_conn.search(space_names, request)
+        return await self.store_conn.search(space_names, search_request)
 
     # 健康检查
     async def health_check(self) -> Dict[str, Any]:
