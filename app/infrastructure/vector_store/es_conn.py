@@ -6,7 +6,8 @@ from typing import Any, Optional
 import logging
 import copy
 import re
-from elasticsearch import AsyncElasticsearch, NotFoundError, ConnectionTimeout 
+from elasticsearch import AsyncElasticsearch, NotFoundError, ConnectionTimeout
+from elasticsearch.exceptions import RequestError
 from elasticsearch_dsl import Q, Search
 from .base import (
     VectorStoreConnection, 
@@ -82,6 +83,12 @@ class ESConnection(VectorStoreConnection):
             )
             logging.info(f"Created space: {space_name}")
             return True
+        except RequestError as e:
+            if "resource_already_exists_exception" in str(e):
+                logging.info(f"Space already exists: {space_name}")
+                return True
+            logging.error(f"Failed to create space {space_name}: {e}")
+            return False
         except Exception as e:
             logging.error(f"Failed to create space {space_name}: {e}")
             return False

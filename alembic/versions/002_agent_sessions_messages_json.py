@@ -18,60 +18,72 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     conn = op.get_bind()
-    # 1. 添加新列（先 nullable 便于从 payload 回填）
-    op.add_column("agent_sessions", sa.Column("description", sa.Text(), nullable=True, comment="会话描述"))
-    op.add_column("agent_sessions", sa.Column("session_type", sa.String(64), nullable=True, comment="会话类型"))
-    op.add_column("agent_sessions", sa.Column("user_id", sa.String(128), nullable=True, comment="用户ID"))
-    op.add_column("agent_sessions", sa.Column("llm_name", sa.String(128), nullable=True, comment="模型名称"))
-    op.add_column("agent_sessions", sa.Column("messages", sa.JSON(), nullable=True, comment="消息列表 JSON"))
-    op.add_column("agent_sessions", sa.Column("metadata", sa.JSON(), nullable=True, comment="元数据 JSON"))
-    op.add_column("agent_sessions", sa.Column("last_updated", sa.DateTime(), nullable=True, comment="最后更新时间"))
+    inspector = sa.inspect(conn)
+    existing_columns = {col["name"] for col in inspector.get_columns("agent_sessions")}
+    # 1. 添加新列（先 nullable 便于从 payload 回填，若已存在则跳过，保证幂等）
+    if "description" not in existing_columns:
+        op.add_column("agent_sessions", sa.Column("description", sa.Text(), nullable=True, comment="会话描述"))
+    if "session_type" not in existing_columns:
+        op.add_column("agent_sessions", sa.Column("session_type", sa.String(64), nullable=True, comment="会话类型"))
+    if "user_id" not in existing_columns:
+        op.add_column("agent_sessions", sa.Column("user_id", sa.String(128), nullable=True, comment="用户ID"))
+    if "llm_name" not in existing_columns:
+        op.add_column("agent_sessions", sa.Column("llm_name", sa.String(128), nullable=True, comment="模型名称"))
+    if "messages" not in existing_columns:
+        op.add_column("agent_sessions", sa.Column("messages", sa.JSON(), nullable=True, comment="消息列表 JSON"))
+    if "metadata" not in existing_columns:
+        op.add_column("agent_sessions", sa.Column("metadata", sa.JSON(), nullable=True, comment="元数据 JSON"))
+    if "last_updated" not in existing_columns:
+        op.add_column("agent_sessions", sa.Column("last_updated", sa.DateTime(), nullable=True, comment="最后更新时间"))
 
-    # 2. 从 payload 回填
-    rows = conn.execute(sa.text("SELECT session_id, payload, created_at, updated_at FROM agent_sessions")).fetchall()
-    for row in rows:
-        sid, payload_str, created_at, updated_at = row
-        try:
-            data = json.loads(payload_str)
-            desc = data.get("description")
-            stype = data.get("session_type") or "chat"
-            uid = data.get("user_id") or ""
-            llm = data.get("llm_name") or "default"
-            msgs = data.get("messages") or []
-            meta = data.get("metadata")
-            last_up = data.get("last_updated") or updated_at
-            if isinstance(last_up, str):
-                last_up = updated_at
-            conn.execute(
-                sa.text("""
-                    UPDATE agent_sessions SET
-                    description = :desc, session_type = :stype, user_id = :uid,
-                    llm_name = :llm, messages = :msgs, metadata = :meta, last_updated = :last_up
-                    WHERE session_id = :sid
-                """),
-                {"desc": desc, "stype": stype, "uid": uid, "llm": llm, "msgs": msgs, "meta": meta, "last_up": last_up, "sid": sid}
-            )
-        except Exception:
-            conn.execute(
-                sa.text("""
-                    UPDATE agent_sessions SET
-                    session_type = 'chat', user_id = '', llm_name = 'default',
-                    messages = '[]', last_updated = updated_at
-                    WHERE session_id = :sid
-                """),
-                {"sid": sid}
-            )
+    # 2. 从 payload 回填（仅当表仍为 001 旧结构、存在 payload 列时执行）
+    if "payload" in existing_columns:
+        rows = conn.execute(sa.text("SELECT session_id, payload, created_at, updated_at FROM agent_sessions")).fetchall()
+        for row in rows:
+            sid, payload_str, created_at, updated_at = row
+            try:
+                data = json.loads(payload_str)
+                desc = data.get("description")
+                stype = data.get("session_type") or "chat"
+                uid = data.get("user_id") or ""
+                llm = data.get("llm_name") or "default"
+                msgs = data.get("messages") or []
+                meta = data.get("metadata")
+                last_up = data.get("last_updated") or updated_at
+                if isinstance(last_up, str):
+                    last_up = updated_at
+                conn.execute(
+                    sa.text("""
+                        UPDATE agent_sessions SET
+                        description = :desc, session_type = :stype, user_id = :uid,
+                        llm_name = :llm, messages = :msgs, metadata = :meta, last_updated = :last_up
+                        WHERE session_id = :sid
+                    """),
+                    {"desc": desc, "stype": stype, "uid": uid, "llm": llm, "msgs": msgs, "meta": meta, "last_up": last_up, "sid": sid}
+                )
+            except Exception:
+                conn.execute(
+                    sa.text("""
+                        UPDATE agent_sessions SET
+                        session_type = 'chat', user_id = '', llm_name = 'default',
+                        messages = '[]', last_updated = updated_at
+                        WHERE session_id = :sid
+                    """),
+                    {"sid": sid}
+                )
 
-    # 3. 删除 payload、updated_at
-    op.drop_column("agent_sessions", "payload")
-    op.drop_column("agent_sessions", "updated_at")
+        # 3. 删除 payload、updated_at
+        op.drop_column("agent_sessions", "payload")
+        op.drop_column("agent_sessions", "updated_at")
 
-    # 4. 非空约束
-    op.alter_column("agent_sessions", "session_type", nullable=False)
-    op.alter_column("agent_sessions", "user_id", nullable=False)
-    op.alter_column("agent_sessions", "llm_name", nullable=False)
-    op.alter_column("agent_sessions", "messages", nullable=False)
-    op.alter_column("agent_sessions", "last_updated", nullable=False)
+    # 4. 非空约束（SQLite 不支持 ALTER COLUMN SET NOT NULL，这里仅在非 SQLite 上执行）
+    bind = op.get_bind()
+    if bind.dialect.name != "sqlite":
+        op.alter_column("agent_sessions", "session_type", nullable=False)
+        op.alter_column("agent_sessions", "user_id", nullable=False)
+        op.alter_column("agent_sessions", "llm_name", nullable=False)
+        op.alter_column("agent_sessions", "messages", nullable=False)
+        op.alter_column("agent_sessions", "last_updated", nullable=False)
 
 
 def downgrade() -> None:
@@ -97,7 +109,10 @@ def downgrade() -> None:
         }, ensure_ascii=False)
         conn.execute(sa.text("UPDATE agent_sessions SET payload = :p WHERE session_id = :sid"), {"p": payload, "sid": sid})
 
-    op.alter_column("agent_sessions", "payload", nullable=False)
+    # SQLite 不支持 ALTER COLUMN SET NOT NULL，这里仅在非 SQLite 上执行
+    bind = op.get_bind()
+    if bind.dialect.name != "sqlite":
+        op.alter_column("agent_sessions", "payload", nullable=False)
     op.drop_column("agent_sessions", "description")
     op.drop_column("agent_sessions", "session_type")
     op.drop_column("agent_sessions", "user_id")

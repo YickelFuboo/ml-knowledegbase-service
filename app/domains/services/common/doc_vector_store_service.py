@@ -236,6 +236,8 @@ class DocVectorStoreService:
 
         # 转换请求
         order_fields = [] 
+        rank_feature_struct = None
+        
         if orderBy:
             for field, order in orderBy.fields:
                 sort_order=SortOrder.ASC if order == 0 else SortOrder.DESC
@@ -264,7 +266,6 @@ class DocVectorStoreService:
                 order_fields.append(sort_field)
 
             # 处理排名特征
-            rank_feature_struct = None
             if rank_feature:
                 rank_feature_struct = RankFeature(
                     fields=rank_feature,

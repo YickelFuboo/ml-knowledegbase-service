@@ -84,7 +84,16 @@ try:
             database=db_name,
         )
     else:
-        sync_url = "sqlite:///./koalawiki.db"
+        raw_path = _get_env("SQLITE_PATH", "")
+        if not raw_path:
+            filename = db_name if db_name.lower().endswith(".db") else f"{db_name}.db"
+            raw_path = os.path.join(_project_root, "data", filename)
+        abs_path = os.path.abspath(raw_path)
+        parent_dir = os.path.dirname(abs_path)
+        if parent_dir and not os.path.isdir(parent_dir):
+            os.makedirs(parent_dir, exist_ok=True)
+        norm_path = abs_path.replace("\\", "/")
+        sync_url = f"sqlite:///{norm_path}"
     config.set_main_option("sqlalchemy.url", str(sync_url))
 except Exception as e:
     import logging
