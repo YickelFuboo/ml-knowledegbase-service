@@ -2,6 +2,12 @@ import os
 from pathlib import Path
 import tomllib
 
+
+def get_project_base_directory() -> Path:
+    """返回项目根目录"""
+    return Path(__file__).resolve().parent.parent.parent
+
+
 def get_project_meta(package_name: str = "knowledge-service"):
     """从 pyproject.toml 读取项目元数据"""
     toml_path = Path(__file__).parent.parent.parent / "pyproject.toml"
