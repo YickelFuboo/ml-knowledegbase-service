@@ -884,7 +884,8 @@ class ESConnection(VectorStoreConnection):
         
         try:
             for attempt in range(ATTEMPT_TIME):   
-                try:
+                try:        
+                    # 异步连接
                     self.es = AsyncElasticsearch(
                         self.hosts.split(","),
                         basic_auth=(self.username, self.password) if self.username and self.password else None,

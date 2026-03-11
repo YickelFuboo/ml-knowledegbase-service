@@ -1,12 +1,15 @@
 import json
 import os
+import time
 import hashlib
 import threading
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from copy import copy
-from typing import Dict, Any, Optional, Type, TypeVar, Generic
+from typing import Dict, Any, Optional, Type, TypeVar, Generic, Tuple
 from app.config.settings import PROJECT_BASE_DIR
+
+DEFAULT_CACHE_TTL_SECONDS = 3600
 
 T = TypeVar('T')
 
@@ -22,14 +25,15 @@ class BaseModelFactory(ABC, Generic[T]):
     def __init__(self, config_filename: str):
         """
         初始化工厂类
-        
+
         Args:
             config_filename: 配置文件名称
         """
         self.config_path = os.path.join(PROJECT_BASE_DIR, "app", "config", config_filename)
         self._config = None
         self._instance_cache_lock = threading.Lock()
-        self._instance_cache = OrderedDict()
+        self._instance_cache: OrderedDict = OrderedDict()
+        self._cache_ttl_seconds = DEFAULT_CACHE_TTL_SECONDS
         self.load_config()
 
     def clear_instance_cache(self):
@@ -272,10 +276,16 @@ class BaseModelFactory(ABC, Generic[T]):
 
         if cache_key is not None:
             with self._instance_cache_lock:
-                cached = self._instance_cache.get(cache_key)
-                if cached is not None:
-                    self._instance_cache.move_to_end(cache_key)
-                    return cached
+                entry = self._instance_cache.get(cache_key)
+                if entry is not None:
+                    instance, created_at = entry
+                    if self._cache_ttl_seconds is not None and created_at > 0:
+                        if time.time() - created_at > self._cache_ttl_seconds:
+                            del self._instance_cache[cache_key]
+                            entry = None
+                    if entry is not None:
+                        self._instance_cache.move_to_end(cache_key)
+                        return instance
         
         # 获取模型类
         model_class = self._models[provider]
@@ -293,7 +303,8 @@ class BaseModelFactory(ABC, Generic[T]):
 
         if cache_key is not None:
             with self._instance_cache_lock:
-                self._instance_cache[cache_key] = instance
+                created_at = time.time() if self._cache_ttl_seconds is not None else 0
+                self._instance_cache[cache_key] = (instance, created_at)
                 self._instance_cache.move_to_end(cache_key)
 
         return instance
